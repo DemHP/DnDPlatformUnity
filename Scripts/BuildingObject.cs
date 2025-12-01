@@ -3,8 +3,8 @@ using UnityEngine.Tilemaps;
 
 public enum Category
 {
-    Wall,
-    Floor
+    Tile,
+    //Floor
     //Roof,
     //Furniture,
     //Decoration

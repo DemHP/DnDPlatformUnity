@@ -2,7 +2,6 @@
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
-using UnityEngine.WSA;
 using UnityEngine.EventSystems;
 
 public class BuildingCreator : Singleton<BuildingCreator>
