@@ -6,22 +6,19 @@ using UnityEngine;
 public abstract class Singleton<T> : MonoBehaviour where T : Component
 {
     private static T instance;
-
     protected static bool DontDestroy = false;
-
     private static bool m_applicationIsQuitting = false;
 
     public static T GetInstance()
     {
-        if (m_applicationIsQuitting) { return null; }
+        if (m_applicationIsQuitting) return null;
 
         if (instance == null)
         {
             instance = FindFirstObjectByType<T>();
             if (instance == null)
             {
-                GameObject obj = new GameObject();
-                obj.name = typeof(T).Name;
+                GameObject obj = new GameObject(typeof(T).Name);
                 instance = obj.AddComponent<T>();
             }
         }
@@ -35,11 +32,10 @@ public abstract class Singleton<T> : MonoBehaviour where T : Component
             instance = this as T;
             if (DontDestroy) DontDestroyOnLoad(gameObject);
         }
-        else if (instance != this as T)
+        else if (instance != this)
         {
             Destroy(gameObject);
         }
-        else if (DontDestroy) { DontDestroyOnLoad(gameObject); }
     }
 
     private void OnApplicationQuit()

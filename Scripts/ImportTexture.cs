@@ -5,17 +5,10 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using Application = UnityEngine.Application;
-using UnityEngine.UI;
-using UnityEngine.Tilemaps;
 
 public class ImportTexture : MonoBehaviour
 {
-    public Texture2D LoadedTexture;
-    public Sprite LoadedSprite;
-
-    public GameObject tileTemplate;       // Your prefab
-    public GameObject generalManager;     // GeneralManager with BuildingCreator
-    public Transform parent;              // Parent container for UI tiles
+    public TilePersistenceManager persistenceManager;
 
     // ===== MAIN THREAD QUEUE =====
     private static readonly Queue<Action> mainThreadQueue = new Queue<Action>();
@@ -37,16 +30,13 @@ public class ImportTexture : MonoBehaviour
         }
     }
 
-    // Called from a UI button
-    public void Import()
+    // Called by UI button
+    public void Import(string type)
     {
-        PickImage();
+        PickImage(type);
     }
 
-    // =====================================
-    // Pick an image using Windows File Dialog
-    // =====================================
-    private void PickImage()
+    private void PickImage(string type)
     {
         Thread thread = new Thread(() =>
         {
@@ -60,7 +50,7 @@ public class ImportTexture : MonoBehaviour
 
                 RunOnMainThread(() =>
                 {
-                    SaveAndConvert(path);
+                    LoadAndSend(path, type);
                 });
             }
         });
@@ -69,12 +59,9 @@ public class ImportTexture : MonoBehaviour
         thread.Start();
     }
 
-    // =====================================
-    // Save -> Resize -> Create Tile -> BuildingObject -> Tile_Template
-    // =====================================
-    private void SaveAndConvert(string originalPath)
+    private void LoadAndSend(string originalPath, string type)
     {
-        // Save Image
+        // Save image
         string imagesFolder = Path.Combine(Application.persistentDataPath, "ImportedImages");
         Directory.CreateDirectory(imagesFolder);
 
@@ -82,57 +69,38 @@ public class ImportTexture : MonoBehaviour
         string copiedPath = Path.Combine(imagesFolder, fileName);
         File.Copy(originalPath, copiedPath, true);
 
-        Debug.Log("Saved Image To: " + copiedPath);
-
-        // Load Texture
+        // Load texture
         byte[] bytes = File.ReadAllBytes(copiedPath);
-
         Texture2D tex = new Texture2D(2, 2);
         tex.LoadImage(bytes);
 
-        // Resize to 500x500
-        LoadedTexture = ResizeTexture(tex, 500, 500);
+        // Resize
+        Texture2D resized = ResizeTexture(tex, 100, 100);
 
-        // Create Sprite
-        LoadedSprite = Sprite.Create(
-            LoadedTexture,
-            new Rect(0, 0, LoadedTexture.width, LoadedTexture.height),
+        // Encode resized texture to PNG and save
+        byte[] pngBytes = resized.EncodeToPNG();
+        File.WriteAllBytes(copiedPath, pngBytes);
+        Debug.Log($"Resized image saved to: {copiedPath}");
+
+        // Create sprite
+        Sprite sprite = Sprite.Create(
+            resized,
+            new Rect(0, 0, resized.width, resized.height),
             new Vector2(0.5f, 0.5f),
             100f
         );
 
-        Debug.Log("Resized Texture: " + LoadedTexture.width + "x" + LoadedTexture.height);
-
-        // =====================================
-        // Create runtime TileBase
-        // =====================================
-        Tile newTile = ScriptableObject.CreateInstance<Tile>();
-        newTile.sprite = LoadedSprite;
-
-        // =====================================
-        // Create BuildingObject ScriptableObject
-        // =====================================
-        BuildingObject buildable = ScriptableObject.CreateInstance<BuildingObject>();
-
-        // Assign private fields via reflection
-        typeof(BuildingObject)
-            .GetField("category", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .SetValue(buildable, Category.Tile);
-
-        typeof(BuildingObject)
-            .GetField("tileBase", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .SetValue(buildable, newTile);
-
-        // =====================================
-        // Create Tile_Template instance
-        // =====================================
-        CreateTileTemplate(buildable);
+        // Hand off to persistence manager
+        persistenceManager.SaveTile(
+            copiedPath,
+            resized,
+            sprite,
+            Category.Tile,
+            type
+        );
     }
 
-    // =====================================
-    // Resize utility
-    // =====================================
-    Texture2D ResizeTexture(Texture2D src, int newW, int newH)
+    private Texture2D ResizeTexture(Texture2D src, int newW, int newH)
     {
         Texture2D dst = new Texture2D(newW, newH);
 
@@ -143,52 +111,12 @@ public class ImportTexture : MonoBehaviour
         {
             for (int x = 0; x < newW; x++)
             {
-                Color newColor = src.GetPixelBilinear(x * stepX, y * stepY);
-                dst.SetPixel(x, y, newColor);
+                Color c = src.GetPixelBilinear(x * stepX, y * stepY);
+                dst.SetPixel(x, y, c);
             }
         }
 
         dst.Apply();
         return dst;
-    }
-
-    // =====================================
-    // Create Tile_Template and assign Button
-    // =====================================
-    private void CreateTileTemplate(BuildingObject buildingObject)
-    {
-        if (tileTemplate == null)
-        {
-            Debug.LogError("Tile Template is NOT assigned!");
-            return;
-        }
-
-        GameObject newTile = Instantiate(tileTemplate, parent);
-
-        // Assign the visible Image
-        TileButtonHandler handler = newTile.GetComponent<TileButtonHandler>();
-        if (handler == null)
-        {
-            Debug.LogError("Tile_Template missing TileButtonHandler component!");
-            return;
-        }
-
-        handler.assignedBuildingObject = buildingObject;
-        handler.generalManager = generalManager;
-
-        UnityEngine.UI.Button btn = newTile.GetComponentInChildren<UnityEngine.UI.Button>();
-        if (btn != null)
-        {
-            handler.AssignButton(btn);
-        }
-
-        // Assign the sprite for the UI image
-        UnityEngine.UI.Image img = newTile.GetComponentInChildren<UnityEngine.UI.Image>();
-        if (img != null)
-        {
-            img.sprite = LoadedSprite;
-        }
-
-        Debug.Log("Tile Template created and button assigned!");
     }
 }

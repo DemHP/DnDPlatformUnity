@@ -1,5 +1,10 @@
 using UnityEngine;
+using UnityEngine.UI;
 using DG.Tweening;
+using System.IO.Compression;
+using UnityEngine.Tilemaps;
+using System.Windows.Forms;
+using UnityEditor.Rendering;
 public class MenuHandler : MonoBehaviour
 {
     public BrushController brushController;
@@ -46,5 +51,10 @@ public class MenuHandler : MonoBehaviour
     public void ChangeScenes(string scene)
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+    }
+
+    public void ChangeLayers(Tilemap newLayer)
+    {
+        brushController.buildCreator.defaultMap = newLayer;
     }
 }

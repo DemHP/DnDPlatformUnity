@@ -1,34 +1,39 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
-using System.Collections.Generic;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 public class BuildingCreator : Singleton<BuildingCreator>
 {
-    [SerializeField] public Tilemap previewMap, defaultMap;
-    [SerializeField] public TileBase cursorTile; // assign in Inspector
+    [Header("Tilemaps")]
+    [SerializeField] public Tilemap previewMap;
+    [SerializeField] public Tilemap defaultMap;
 
-    [SerializeField] public int brushRows = 1;     // number of rows (signed allowed)
-    [SerializeField] public int brushColumns = 1;  // number of cols (signed allowed)
+    [Header("Tiles")]
+    [SerializeField] public TileBase cursorTile;
+
+    [Header("Brush Size")]
+    [SerializeField] public int brushRows = 1;
+    [SerializeField] public int brushColumns = 1;
 
     public BrushController brushSize;
 
     PlayerInput playerInput;
+    Camera cam;
+
     TileBase tileBase;
     BuildingObject selectedObj;
-
-    Camera cam;
 
     Vector2 mousePos;
     public Vector3Int currentGridPosition;
     Vector3Int lastGridPosition;
 
-    bool isDrawing = false; // drawing left click
+    bool isDrawing = false;
 
-    // Anchor mode used by BrushSizeController when resizing the brush (right-drag)
     [HideInInspector] public bool useAnchorPreview = false;
     [HideInInspector] public Vector3Int anchorGridPosition;
+
 
     protected override void Awake()
     {
@@ -57,37 +62,15 @@ public class BuildingCreator : Singleton<BuildingCreator>
         playerInput.Gameplay.MouseRightClick.performed -= OnRightClick;
     }
 
-    private BuildingObject SelectedObj
-    {
-        set
-        {
-            selectedObj = value;
-            tileBase = selectedObj != null ? selectedObj.TileBase : null;
-            UpdatePreview();
-        }
-    }
-
     private void Update()
     {
-        // Convert mouse to grid directly
-        Vector3 screen = new Vector3(mousePos.x, mousePos.y, cam.nearClipPlane);
-        Vector3 worldPos = cam.ScreenToWorldPoint(screen);
-        Vector3Int gridPos = previewMap.WorldToCell(worldPos);
-
-
-
-        if (gridPos != currentGridPosition)
-        {
-            lastGridPosition = currentGridPosition;
-            currentGridPosition = gridPos;
-
-            if (selectedObj != null || useAnchorPreview)
-                UpdatePreview();
-        }
+        UpdateMouseGridPosition();
 
         if (isDrawing && selectedObj != null && brushSize.brushMode == BrushMode.Single)
             DrawItem();
     }
+
+
 
     private void OnMouseMove(InputAction.CallbackContext ctx)
     {
@@ -96,13 +79,12 @@ public class BuildingCreator : Singleton<BuildingCreator>
 
     private void OnLeftClickDown(InputAction.CallbackContext ctx)
     {
-        if (EventSystem.current.IsPointerOverGameObject())
-            return;
+        if (EventSystem.current.IsPointerOverGameObject()) return;
 
         if (selectedObj != null)
         {
             isDrawing = true;
-            DrawItem(); // immediate
+            DrawItem();
         }
     }
 
@@ -113,7 +95,18 @@ public class BuildingCreator : Singleton<BuildingCreator>
 
     private void OnRightClick(InputAction.CallbackContext ctx)
     {
-        SelectedObj = null; // deselect
+        SelectedObj = null;
+    }
+
+
+    private BuildingObject SelectedObj
+    {
+        set
+        {
+            selectedObj = value;
+            tileBase = selectedObj != null ? selectedObj.TileBase : null;
+            UpdatePreview();
+        }
     }
 
     public void ObjectSelected(BuildingObject obj)
@@ -121,10 +114,26 @@ public class BuildingCreator : Singleton<BuildingCreator>
         SelectedObj = obj;
     }
 
-
     public bool HasSelectedObject()
     {
         return selectedObj != null && tileBase != null;
+    }
+
+
+
+    void UpdateMouseGridPosition()
+    {
+        Vector3 screen = new Vector3(mousePos.x, mousePos.y, cam.nearClipPlane);
+        Vector3 worldPos = cam.ScreenToWorldPoint(screen);
+        Vector3Int gridPos = previewMap.WorldToCell(worldPos);
+
+        if (gridPos == currentGridPosition) return;
+
+        lastGridPosition = currentGridPosition;
+        currentGridPosition = gridPos;
+
+        if (selectedObj != null || useAnchorPreview)
+            UpdatePreview();
     }
 
     public IEnumerable<Vector3Int> GetBrushArea()
@@ -134,51 +143,34 @@ public class BuildingCreator : Singleton<BuildingCreator>
         if (cols == 0 || rows == 0) yield break;
 
         int dirX = brushColumns >= 0 ? 1 : -1;
-        int dirY = brushRows >= 0 ? -1 : 1; // note flipped Y
+        int dirY = brushRows >= 0 ? -1 : 1;
 
-        if (useAnchorPreview)
+        Vector3Int origin = useAnchorPreview ? anchorGridPosition : currentGridPosition;
+
+        for (int x = 0; x < cols; x++)
         {
-            // Anchor-based expansion
-            for (int x = 0; x < cols; x++)
+            for (int y = 0; y < rows; y++)
             {
-                for (int y = 0; y < rows; y++)
-                {
-                    yield return new Vector3Int(
-                        anchorGridPosition.x + x * dirX,
-                        anchorGridPosition.y + y * dirY,
-                        anchorGridPosition.z
-                    );
-                }
-            }
-        }
-        else
-        {
-            // Centered brush
-            int startX = currentGridPosition.x - (cols - 1) / 2;
-            int startY = currentGridPosition.y - (rows - 1) / 2;
-
-            if (dirX < 0) startX = currentGridPosition.x + (cols - 1) / 2;
-            if (dirY < 0) startY = currentGridPosition.y + (rows - 1) / 2;
-
-            for (int x = 0; x < cols; x++)
-            {
-                for (int y = 0; y < rows; y++)
-                {
-                    int offsetX = dirX >= 0 ? x : -x;
-                    int offsetY = dirY >= 0 ? y : -y;
-
-                    yield return new Vector3Int(
-                        startX + offsetX,
-                        startY + offsetY,
-                        currentGridPosition.z
-                    );
-                }
+                yield return new Vector3Int(
+                    origin.x + x * dirX,
+                    origin.y + y * dirY,
+                    origin.z
+                );
             }
         }
     }
 
+
+
     public void UpdatePreview()
     {
+        if(brushSize.brushMode != BrushMode.Single && 
+            brushSize.brushMode != BrushMode.Fill)
+        {
+            ClearPreview();
+            return;
+        }
+        
         previewMap.ClearAllTiles();
         TileBase previewTile = tileBase != null ? tileBase : cursorTile;
         if (previewTile == null) return;
@@ -202,7 +194,7 @@ public class BuildingCreator : Singleton<BuildingCreator>
 
     public void PlaceTile(Vector3Int position)
     {
-        // Set the tile at the given grid position
         defaultMap.SetTile(position, tileBase);
     }
+
 }
