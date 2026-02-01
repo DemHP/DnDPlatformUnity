@@ -4,7 +4,6 @@ using DG.Tweening;
 using System.IO.Compression;
 using UnityEngine.Tilemaps;
 using System.Windows.Forms;
-using UnityEditor.Rendering;
 public class MenuHandler : MonoBehaviour
 {
     public BrushController brushController;
@@ -39,6 +38,12 @@ public class MenuHandler : MonoBehaviour
     {
         // Animate the bookmark to the new position
         bookmark.transform.DOLocalMoveX(posX, tweenSpeed).SetEase(Ease.OutCubic);
+    }
+
+    public void MoveBookmarkY(int posY)
+    {
+        // Animate the bookmark to the new position
+        bookmark.transform.DOLocalMoveY(posY, tweenSpeed).SetEase(Ease.OutCubic);
     }
 
     public void ChangeBrushMode(string mode)

@@ -1,10 +1,12 @@
 ﻿using UnityEngine;
 using Unity.Mathematics;
+using UnityEngine.Tilemaps;
 public enum BrushMode
 {
     Select,
     Pan,
     Text,
+    TextEdit,
     Fill,
     Single,
 }
@@ -21,13 +23,22 @@ public class BrushController : MonoBehaviour
     public BrushMode brushMode = BrushMode.Single;
     public BuildingObject eraser;
     public Camera cam;
+    public TextObject textObject;
+    private TextObject activeTextObject;
+    public Canvas textCanvas;
+    
+    public Tilemap tilemap;
+    public GameObject editTile;
+    public TileEdit tileEdit;
 
     bool isAdjustingBrush = false;
+    bool isClicking = false;
     private Vector3Int anchorGridPos;
     private Vector3 lastMousePos;
 
     private void Update()
     {
+        tilemap = buildCreator.defaultMap;
         HandleMouseInput();
 
         if (isAdjustingBrush)
@@ -47,7 +58,22 @@ public class BrushController : MonoBehaviour
                 break;
 
             case BrushMode.Pan:
+                buildCreator.ClearSelectedTile();
                 HandlePanMode();
+                break;
+
+            case BrushMode.Text:
+                buildCreator.ClearSelectedTile();
+                HandleTextMode();
+                break;
+
+            case BrushMode.TextEdit:
+                HandleTextEditMode();
+                break;
+
+            case BrushMode.Select:
+                buildCreator.ClearSelectedTile();
+                HandleSelectMode();
                 break;
         }
     }
@@ -91,6 +117,112 @@ public class BrushController : MonoBehaviour
 
             cam.transform.position += difference;
             lastMousePos = cam.ScreenToWorldPoint(Input.mousePosition);
+        }
+    }
+
+    private void HandleTextMode()
+    {
+        // Create text object
+        if (Input.GetMouseButtonUp(0) && activeTextObject == null)
+        {
+            activeTextObject = Instantiate(textObject, textCanvas.transform);
+        }
+
+        if (activeTextObject != null)
+        {
+            RectTransform rectTransform = activeTextObject.GetComponent<RectTransform>();
+
+            Vector2 localPoint;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                textCanvas.transform as RectTransform,
+                Input.mousePosition,
+                textCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : textCanvas.worldCamera,
+                out localPoint
+            );
+
+            rectTransform.anchoredPosition = localPoint;
+
+            // Final placement
+            if (Input.GetMouseButtonDown(0))
+            {
+                activeTextObject = null;
+                brushMode = BrushMode.TextEdit;
+            }
+
+            // Cancel placement with right click
+            if (Input.GetMouseButtonDown(1))
+            {
+                Destroy(activeTextObject.gameObject);
+                activeTextObject = null;
+            }
+        }
+    }
+
+    private void HandleTextEditMode()
+    {
+        CameraMovement camMove = cam.GetComponent<CameraMovement>();
+        camMove.enabled = false;
+
+        if(Input.GetKeyUp(KeyCode.Return))
+        {
+            camMove.enabled = true;
+            brushMode = BrushMode.Pan;
+        }
+    }
+
+
+    private void HandleSelectMode()
+    {
+        // Mouse button pressed
+        if (Input.GetMouseButtonUp(0))
+        {
+            if (editTile.activeSelf) return;
+
+            isClicking = true;
+        }
+
+        // Mouse button released
+        if (Input.GetMouseButtonDown(0) && isClicking)
+        {
+            isClicking = false;
+
+            Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+
+            // Check if clicking on Visual
+            RaycastHit2D hit = Physics2D.Raycast(worldPos, Vector2.zero);
+            
+            if (hit.collider != null && hit.collider.CompareTag("Tile_Visual"))
+            {
+                tileEdit.OpenEditor();
+                Vector3 visualWorldPos = hit.transform.position;
+                
+                editTile.transform.position = new Vector3(
+                    visualWorldPos.x,
+                    visualWorldPos.y,
+                    -0.02f
+                );
+
+                editTile.transform.localScale = hit.transform.localScale;
+                tileEdit.visualInstance = hit.transform.gameObject;
+
+                return;
+            }
+
+
+            // Clicking on set Tile
+            Vector3Int cellPos = tilemap.WorldToCell(worldPos);
+
+            if (!tilemap.HasTile(cellPos)) return;
+
+            Vector3 tileWorldPos = tilemap.GetCellCenterWorld(cellPos);
+            editTile.transform.position = new Vector3(
+                tileWorldPos.x,
+                tileWorldPos.y,
+                -0.02f
+            );
+
+            editTile.SetActive(true);
+            tileEdit.AssignTile(tilemap, cellPos);
         }
     }
 

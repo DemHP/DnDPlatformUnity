@@ -29,4 +29,10 @@ public class BuildingObject : ScriptableObject {
             return category;
         }
     }
+
+    public void Initialize(TileBase tile, Category category)
+    {
+        this.tileBase = tile;
+        this.category = category;
+    }
 }

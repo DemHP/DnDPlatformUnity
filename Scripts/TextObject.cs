@@ -1,16 +1,35 @@
+using TMPro;
 using UnityEngine;
 
 public class TextObject : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
+    public TextMeshProUGUI text;
+    public TMP_InputField input;
+    public GameObject inputObject;
+    public GameObject editBackground;
+    public bool writeMode = true;
 
-    // Update is called once per frame
     void Update()
     {
-        
+        if(writeMode)
+        {
+            text.text = input.text;
+
+            if(Input.GetKey(KeyCode.Return)) {
+                writeMode = false;
+
+                Destroy(inputObject);
+            }
+        }
+    }
+
+    public void IncreaseHeight(int amount)
+    {
+        text.fontSize += amount;
+    }
+
+    public void EditVisibility(GameObject background)
+    {
+        background.SetActive(!background.activeSelf);
     }
 }

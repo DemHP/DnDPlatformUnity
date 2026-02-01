@@ -70,8 +70,6 @@ public class BuildingCreator : Singleton<BuildingCreator>
             DrawItem();
     }
 
-
-
     private void OnMouseMove(InputAction.CallbackContext ctx)
     {
         mousePos = ctx.ReadValue<Vector2>();
@@ -98,6 +96,10 @@ public class BuildingCreator : Singleton<BuildingCreator>
         SelectedObj = null;
     }
 
+    public void ClearSelectedTile()
+    {
+        SelectedObj = null;
+    }
 
     private BuildingObject SelectedObj
     {
@@ -119,8 +121,6 @@ public class BuildingCreator : Singleton<BuildingCreator>
         return selectedObj != null && tileBase != null;
     }
 
-
-
     void UpdateMouseGridPosition()
     {
         Vector3 screen = new Vector3(mousePos.x, mousePos.y, cam.nearClipPlane);
@@ -135,7 +135,6 @@ public class BuildingCreator : Singleton<BuildingCreator>
         if (selectedObj != null || useAnchorPreview)
             UpdatePreview();
     }
-
     public IEnumerable<Vector3Int> GetBrushArea()
     {
         int cols = Mathf.Abs(brushColumns);
@@ -160,8 +159,6 @@ public class BuildingCreator : Singleton<BuildingCreator>
         }
     }
 
-
-
     public void UpdatePreview()
     {
         if(brushSize.brushMode != BrushMode.Single && 
@@ -178,7 +175,6 @@ public class BuildingCreator : Singleton<BuildingCreator>
         foreach (var pos in GetBrushArea())
             previewMap.SetTile(pos, previewTile);
     }
-
     public void ClearPreview()
     {
         previewMap.ClearAllTiles();

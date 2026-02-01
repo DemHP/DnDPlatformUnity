@@ -8,21 +8,23 @@ public class TilePersistenceManager : MonoBehaviour
 {
 
     public string type = "";
+    public TileUIManager uiManager;
+
 
     public void Start()
     {
+        RuntimeTileRegistry.Clear();
         LoadAll(type);
     }
 
 
-    public TileUIManager uiManager;
     public void SaveTile(
         string imagePath,
         Texture2D texture,
         Sprite sprite,
         Category category,
         string type
-        )
+    )
     {
         string tileID = Guid.NewGuid().ToString();
 
@@ -60,36 +62,38 @@ public class TilePersistenceManager : MonoBehaviour
             JsonUtility.ToJson(boJson, true)
         );
 
-        // Build runtime objects immediately
-        UnityEngine.Tilemaps.Tile tile = ScriptableObject.CreateInstance<UnityEngine.Tilemaps.Tile>();
+        // ===== BUILD RUNTIME TILE =====
+        Tile tile = ScriptableObject.CreateInstance<Tile>();
         tile.sprite = sprite;
+        tile.name = tileID;
 
+        RuntimeTileRegistry.Register(tileID, tile);
+
+        // ===== BUILD UI OBJECT =====
         BuildingObject buildable = ScriptableObject.CreateInstance<BuildingObject>();
-        typeof(BuildingObject)
-            .GetField("category", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .SetValue(buildable, category);
-
-        typeof(BuildingObject)
-            .GetField("tileBase", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .SetValue(buildable, tile);
+        buildable.Initialize(tile, category);
 
         uiManager.Create(buildable, sprite);
     }
 
+    // ================= LOAD ALL TILES =================
     public void LoadAll(string typeFilter)
     {
-        string tilesFolder = Path.Combine(UnityEngine.Application.persistentDataPath, "Tiles");
-        string buildFolder = Path.Combine(UnityEngine.Application.persistentDataPath, "BuildingObjects");
+        string tilesFolder = Path.Combine(Application.persistentDataPath, "Tiles");
+        string buildFolder = Path.Combine(Application.persistentDataPath, "BuildingObjects");
 
-        if (!Directory.Exists(tilesFolder)) return;
-
-        Dictionary<string, UnityEngine.Tilemaps.Tile> tileCache = new();
+        if (!Directory.Exists(tilesFolder))
+            return;
 
         foreach (string file in Directory.GetFiles(tilesFolder, "*.json"))
         {
-            TileDataJson tileJson = JsonUtility.FromJson<TileDataJson>(File.ReadAllText(file));
+            TileDataJson tileJson =
+                JsonUtility.FromJson<TileDataJson>(File.ReadAllText(file));
 
             if (tileJson.type != typeFilter)
+                continue;
+
+            if (!File.Exists(tileJson.imagePath))
                 continue;
 
             byte[] bytes = File.ReadAllBytes(tileJson.imagePath);
@@ -103,30 +107,29 @@ public class TilePersistenceManager : MonoBehaviour
                 tileJson.pixelsPerUnit
             );
 
-            UnityEngine.Tilemaps.Tile tile = ScriptableObject.CreateInstance<UnityEngine.Tilemaps.Tile>();
+            Tile tile = ScriptableObject.CreateInstance<Tile>();
             tile.sprite = sprite;
+            tile.name = tileJson.tileId;
 
-            tileCache[tileJson.tileId] = tile;
+            RuntimeTileRegistry.Register(tileJson.tileId, tile);
         }
+
+        if (!Directory.Exists(buildFolder))
+            return;
 
         foreach (string file in Directory.GetFiles(buildFolder, "*.json"))
         {
-            BuildingObjectJson boJson = JsonUtility.FromJson<BuildingObjectJson>(File.ReadAllText(file));
+            BuildingObjectJson boJson =
+                JsonUtility.FromJson<BuildingObjectJson>(File.ReadAllText(file));
 
-            if (!tileCache.TryGetValue(boJson.tileId, out UnityEngine.Tilemaps.Tile tile))
+            TileBase tile = RuntimeTileRegistry.Get(boJson.tileId);
+            if (tile == null)
                 continue;
 
             BuildingObject buildable = ScriptableObject.CreateInstance<BuildingObject>();
+            buildable.Initialize(tile, boJson.category);
 
-            typeof(BuildingObject)
-                .GetField("category", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .SetValue(buildable, boJson.category);
-
-            typeof(BuildingObject)
-                .GetField("tileBase", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .SetValue(buildable, tile);
-
-            uiManager.Create(buildable, tile.sprite);
+            uiManager.Create(buildable, ((Tile)tile).sprite);
         }
     }
 }
