@@ -1,18 +1,19 @@
-using UnityEngine;
-using System.Threading;
-using System.Windows.Forms;
-using System.IO;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Windows.Forms;
+using UnityEngine;
+using UnityEngine.XR;
 using Application = UnityEngine.Application;
 
-public class ImportTexture : MonoBehaviour
+
+public class ImportCharacterArt : MonoBehaviour
 {
     public TilePersistenceManager persistenceManager;
 
-    // ===== MAIN THREAD QUEUE =====
-    private static readonly Queue<Action> mainThreadQueue = new Queue<Action>();
-
+    private static readonly Queue<Action> mainThreadQueue = new Queue<Action>();    
+    
     private void Update()
     {
         lock (mainThreadQueue)
@@ -56,29 +57,28 @@ public class ImportTexture : MonoBehaviour
         });
 
         thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
+        thread.Start();        
     }
 
     private void LoadAndSend(string originalPath, string type)
     {
         // Save image
-        string imagesFolder = Path.Combine(Application.persistentDataPath, "ImportedImages");
-        Directory.CreateDirectory(imagesFolder);
+        string characterArtFolder = Path.Combine(Application.persistentDataPath, "ImportedImages");
+        Directory.CreateDirectory(characterArtFolder);
 
         string fileName = Path.GetFileName(originalPath);
-        string copiedPath = Path.Combine(imagesFolder, fileName);
+        string copiedPath = Path.Combine(characterArtFolder, fileName);
         File.Copy(originalPath, copiedPath, true);
 
-        // Load texture
+        // Load image
         byte[] bytes = File.ReadAllBytes(copiedPath);
         Texture2D tex = new Texture2D(2, 2);
         tex.LoadImage(bytes);
 
         // Resize
-        Texture2D resized = ResizeTexture(tex, 100, 100);
+        Texture2D resized = ResizedTexture(tex, 1000, 1000);
 
-
-        // Encode resized texture to PNG and save
+        // Encode resized image to PNG and save
         byte[] pngBytes = resized.EncodeToPNG();
         File.WriteAllBytes(copiedPath, pngBytes);
         Debug.Log($"Resized image saved to: {copiedPath}");
@@ -87,7 +87,7 @@ public class ImportTexture : MonoBehaviour
         Sprite sprite = Sprite.Create(
             resized,
             new Rect(0, 0, resized.width, resized.height),
-            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 05f),
             100f
         );
 
@@ -99,9 +99,10 @@ public class ImportTexture : MonoBehaviour
             Category.Tile,
             type
         );
+
     }
 
-    private Texture2D ResizeTexture(Texture2D src, int newW, int newH)
+    private Texture2D ResizedTexture(Texture2D src, int newW, int newH)
     {
         Texture2D dst = new Texture2D(newW, newH);
 

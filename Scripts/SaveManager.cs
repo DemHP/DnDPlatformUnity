@@ -121,7 +121,9 @@ public class SaveManager : MonoBehaviour
             prefabs = SavePrefabs()
         };
 
-        File.WriteAllText(SavePath, JsonUtility.ToJson(saveData, true));
+        // Remove formatting for optimization.
+        File.WriteAllText(SavePath, JsonUtility.ToJson(saveData, false));
+
         Debug.Log($"Map saved: {SavePath}");
     }
 
@@ -185,7 +187,11 @@ public class SaveManager : MonoBehaviour
     // Load
     public void LoadMap()
     {
-        string initialDir = mapsFolderCached; // capture main-thread value
+        string initialDir = Path.GetFullPath(mapsFolderCached);
+
+        // Ensure directory exists BEFORE dialog is created
+        if (!Directory.Exists(initialDir))
+            Directory.CreateDirectory(initialDir);
 
         Thread thread = new Thread(() =>
         {
@@ -194,6 +200,8 @@ public class SaveManager : MonoBehaviour
                 Title = "Select Map JSON",
                 Filter = "JSON files (*.json)|*.json",
                 InitialDirectory = initialDir,
+                RestoreDirectory = false,
+                FileName = "",
                 Multiselect = false
             };
 
@@ -212,8 +220,7 @@ public class SaveManager : MonoBehaviour
         thread.Start();
     }
 
-
-    private void LoadMapFromPath(string path)
+    public void LoadMapFromPath(string path)
     {
         if (!File.Exists(path))
         {
@@ -311,5 +318,39 @@ public class SaveManager : MonoBehaviour
 
         foreach (Transform child in children)
             DestroyImmediate(child.gameObject);
+    }
+
+    public string OpenMapDialog()
+    {
+        string folder = Path.Combine(Application.persistentDataPath, "Maps");
+        if (!Directory.Exists(folder))
+            Directory.CreateDirectory(folder);
+
+        string selectedPath = null;
+
+        // Run in STA thread for dialog
+        Thread thread = new Thread(() =>
+        {
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                Title = "Select Map JSON",
+                Filter = "JSON files (*.json)|*.json",
+                InitialDirectory = folder,
+                RestoreDirectory = false,
+                FileName = "",
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                selectedPath = dialog.FileName;
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join(); // Wait for user to pick a file
+
+        return selectedPath;
     }
 }
