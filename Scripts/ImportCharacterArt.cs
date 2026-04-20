@@ -10,10 +10,12 @@ using Application = UnityEngine.Application;
 
 public class ImportCharacterArt : MonoBehaviour
 {
-    public TilePersistenceManager persistenceManager;
+    public CharacterArtPersistanceManager persistenceManager;
+    public CharacterSaveManager charSaveManager;
 
     private static readonly Queue<Action> mainThreadQueue = new Queue<Action>();    
     
+
     private void Update()
     {
         lock (mainThreadQueue)
@@ -63,12 +65,15 @@ public class ImportCharacterArt : MonoBehaviour
     private void LoadAndSend(string originalPath, string type)
     {
         // Save image
-        string characterArtFolder = Path.Combine(Application.persistentDataPath, "ImportedImages");
+        string characterArtFolder = Path.Combine(Application.persistentDataPath, "CharacterArt");
         Directory.CreateDirectory(characterArtFolder);
 
         string fileName = Path.GetFileName(originalPath);
         string copiedPath = Path.Combine(characterArtFolder, fileName);
         File.Copy(originalPath, copiedPath, true);
+
+        // Store copied path in Character Creator
+        charSaveManager.SetPortraitLocation(copiedPath);
 
         // Load image
         byte[] bytes = File.ReadAllBytes(copiedPath);
@@ -76,7 +81,7 @@ public class ImportCharacterArt : MonoBehaviour
         tex.LoadImage(bytes);
 
         // Resize
-        Texture2D resized = ResizedTexture(tex, 1000, 1000);
+        Texture2D resized = ResizedTexture(tex, 1000, 1000); // changed this to 1k x 1k
 
         // Encode resized image to PNG and save
         byte[] pngBytes = resized.EncodeToPNG();
@@ -88,11 +93,11 @@ public class ImportCharacterArt : MonoBehaviour
             resized,
             new Rect(0, 0, resized.width, resized.height),
             new Vector2(0.5f, 05f),
-            100f
+            10000f
         );
 
         // Hand off to persistence manager
-        persistenceManager.SaveTile(
+        persistenceManager.SaveArt(
             copiedPath,
             resized,
             sprite,

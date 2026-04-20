@@ -4,14 +4,14 @@ using UnityEngine.UI;
 public class CharacterArtButtonHandler : MonoBehaviour
 {
     public BuildingObject assignedBuildingObject;
-    public GameObject generalManager;
+    public BuildingCreator generalManager;
 
     public void AssignButton(Button btn)
     {
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() =>
         {
-            BuildingCreator creator = generalManager.GetComponent<BuildingCreator>();
+            BuildingCreator creator = generalManager;
             if (creator != null)
             {
                 creator.ObjectSelected(assignedBuildingObject);

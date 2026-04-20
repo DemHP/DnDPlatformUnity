@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.Services.Authentication;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using UnityEngine.UIElements;
+using System.IO;
 
 public class PlayerController : NetworkBehaviour
 {
@@ -13,11 +14,12 @@ public class PlayerController : NetworkBehaviour
     public PlayerStatsManager playerStats;
     private bool statFound = false;
 
+    [Header("Player Name Display")]
+    public string playerNameText;
+
     [Header("DM Settings")]
-    public GameObject selectedNPCInstance;  // what to move
-
+    public GameObject selectedNPCInstance;
     public List<GameObject> npcPrefabs = new List<GameObject>();
-
     public int selectedNPCPrefabIndex = -1;
 
     private Camera cam;
@@ -49,6 +51,12 @@ public class PlayerController : NetworkBehaviour
             else
                 Role.Value = PlayerRole.PC;
         }
+        
+        if (IsOwner)
+        {
+            playerNameText = GetPlayersLocalName(playerNameText);
+            ChangeName(playerNameText);
+        }
 
         Role.OnValueChanged += OnRoleChanged;
         ApplyTag(Role.Value);
@@ -58,6 +66,47 @@ public class PlayerController : NetworkBehaviour
     {
         ApplyTag(newRole);
     }
+    async void ChangeName(string newName)
+    {
+        try
+        {
+            await AuthenticationService.Instance.UpdatePlayerNameAsync(newName);
+            Debug.Log("Name updated successfully!");
+        }
+        catch (AuthenticationException e)
+        {
+            Debug.LogException(e);
+        }
+    }
+
+    public string GetPlayersLocalName(string currname)
+    {
+        string filePath = Path.Combine(Application.persistentDataPath, "settings.json");
+
+        if (!File.Exists(filePath))
+        {
+            Debug.LogWarning("Settings file not found.");
+            return currname;
+        }
+
+        try
+        {
+            string jsonContent = File.ReadAllText(filePath);
+            Settings settings = JsonUtility.FromJson<Settings>(jsonContent);
+
+            
+            if (!string.IsNullOrEmpty(settings.playerNameText))
+                return settings.playerNameText;
+            else
+                return currname;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Failed to read settings.json: " + e.Message);
+            return currname;
+        }
+    }
+
 
     private void ApplyTag(PlayerRole role)
     {
@@ -118,7 +167,7 @@ public class PlayerController : NetworkBehaviour
 
     private void HandleMouse()
     {
-        if (Input.GetMouseButton(1))
+        if (Input.GetMouseButton(1) && tilemap != null)
         {
             Vector3 mouseWorld = cam.ScreenToWorldPoint(Input.mousePosition);
             mouseWorld.z = 0f;
@@ -191,8 +240,6 @@ public class PlayerController : NetworkBehaviour
         else if (hit.collider != null && hit.collider.CompareTag("PC"))
         {
             Debug.Log($"{hit.transform.name} Clicked!");
-            playerStats.FetchPlayerStats(hit.transform.gameObject);
-            playerStats.OpenPlayerStatsMenu();
         }
         else
         {

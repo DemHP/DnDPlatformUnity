@@ -31,6 +31,7 @@ public class MenuHandler : MonoBehaviour
     public GameObject bookmark; // The bookmark is the little highlight that moves to show which menu is selected
     public float tweenSpeed = 0.3f;
     public float menuOffsetX = 200f;
+    public NameSync nameSync;
 
     // UI Elements for saving and loading settings. Header just keeps them organized in the Unity inspector and doesn't affect functionality
     [Header("Save Settings")]
@@ -41,7 +42,7 @@ public class MenuHandler : MonoBehaviour
 
     private string MapsFolder => Path.Combine(Application.persistentDataPath, "Maps");
     private string filePath;
-
+    
     private string _pendingMapPath;
     private List<Vector2Int> resolutions = new List<Vector2Int>()
     {
@@ -59,6 +60,7 @@ public class MenuHandler : MonoBehaviour
         // persistentDataPath is a special folder that Unity provides for saving data.
         filePath = Path.Combine(Application.persistentDataPath, "settings.json");
         LoadSettings(); // Just a function to load the settings when the application starts
+
     }
 
     // This function is called to make a menu visible. A button in the UI will call this function.
@@ -155,6 +157,7 @@ public class MenuHandler : MonoBehaviour
             slider4.value = settings.slider4;
             toggle.isOn = settings.toggleValue;
             playerName.text = settings.playerNameText;
+            nameSync.updateName();
 
             Debug.Log("Settings loaded.");
         }
@@ -206,6 +209,36 @@ public class MenuHandler : MonoBehaviour
 
         // Load the target scene
         SceneManager.LoadScene("MapMaker");
+    }
+
+    public void LoadMapFromMenu()
+    {
+        if (!Directory.Exists(MapsFolder))
+        {
+            Directory.CreateDirectory(MapsFolder);
+        }
+
+        string initialDir = Path.GetFullPath(MapsFolder);
+
+        // Open file dialog to select a JSON map
+        OpenFileDialog dialog = new OpenFileDialog();
+        dialog.InitialDirectory = initialDir;
+        dialog.Filter = "JSON Map (*.json)|*.json";
+        dialog.Title = "Select Map File";
+
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            // Store selected file path
+            _pendingMapPath = dialog.FileName;
+            Debug.Log($"Selected Map File: {_pendingMapPath}");
+
+            // Prevent duplicate subscriptions
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Load MapMaker scene
+            SceneManager.LoadScene("MapMaker");
+        }
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

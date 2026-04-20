@@ -9,8 +9,6 @@ using System.Threading;
 using System.Windows.Forms;
 using Application = UnityEngine.Application;
 
-
-
 [Serializable]
 public class TileData
 {
@@ -33,6 +31,8 @@ public class MapSaveData
     public TilemapLayerData layer3;
 
     public List<PrefabData> prefabs = new();
+
+    public string backgroundImagePath;
 }
 
 [Serializable]
@@ -63,6 +63,10 @@ public class SaveManager : MonoBehaviour
     [Header("Prefabs")]
     public GameObject grid;
     public GameObject tileVisualPrefab;
+
+    [Header("Background")]
+    public SpriteRenderer backgroundRenderer;
+    public ChangeBackground backgroundChanger;
 
     [Header("Save Settings")]
     public string saveName = "New_Map";
@@ -118,7 +122,8 @@ public class SaveManager : MonoBehaviour
             layer1 = SaveLayer(layer1),
             layer2 = SaveLayer(layer2),
             layer3 = SaveLayer(layer3),
-            prefabs = SavePrefabs()
+            prefabs = SavePrefabs(),
+            backgroundImagePath = backgroundChanger.lastSavedPath
         };
 
         // Remove formatting for optimization.
@@ -228,6 +233,8 @@ public class SaveManager : MonoBehaviour
             return;
         }
 
+        if (backgroundRenderer != null) backgroundRenderer.sprite = null;
+
         string json = File.ReadAllText(path);
         MapSaveData saveData = JsonUtility.FromJson<MapSaveData>(json);
 
@@ -238,6 +245,7 @@ public class SaveManager : MonoBehaviour
         LoadLayer(layer2, saveData.layer2);
         LoadLayer(layer3, saveData.layer3);
         LoadPrefabs(saveData.prefabs);
+        LoadBackgroundImage(saveData.backgroundImagePath);
 
         Debug.Log($"Map loaded: {path}");
     }
@@ -297,6 +305,28 @@ public class SaveManager : MonoBehaviour
             }
         }
     }
+    private void LoadBackgroundImage(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            Debug.LogWarning($"Background image not found: {path}");
+            return;
+        }
+
+        byte[] bytes = File.ReadAllBytes(path);
+        Texture2D tex = new Texture2D(2, 2);
+        tex.LoadImage(bytes);
+
+        Sprite sprite = Sprite.Create(
+            tex,
+            new Rect(0, 0, tex.width, tex.height),
+            new Vector2(0.5f, 0.5f),
+            100f
+        );
+
+        if (backgroundRenderer != null)
+            backgroundRenderer.sprite = sprite;
+    }
 
     private void ClearAllLayers()
     {
@@ -328,28 +358,20 @@ public class SaveManager : MonoBehaviour
 
         string selectedPath = null;
 
-        // Run in STA thread for dialog
-        Thread thread = new Thread(() =>
+        OpenFileDialog dialog = new OpenFileDialog
         {
-            OpenFileDialog dialog = new OpenFileDialog
-            {
-                Title = "Select Map JSON",
-                Filter = "JSON files (*.json)|*.json",
-                InitialDirectory = folder,
-                RestoreDirectory = false,
-                FileName = "",
-                Multiselect = false
-            };
+            Title = "Select Map JSON",
+            Filter = "JSON files (*.json)|*.json",
+            InitialDirectory = folder,
+            RestoreDirectory = true,
+            FileName = "",
+            Multiselect = false
+        };
 
-            if (dialog.ShowDialog() == DialogResult.OK)
-            {
-                selectedPath = dialog.FileName;
-            }
-        });
-
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join(); // Wait for user to pick a file
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            selectedPath = dialog.FileName;
+        }
 
         return selectedPath;
     }

@@ -6,7 +6,9 @@ public class CharacterArtUIManager : MonoBehaviour
     [Header("UI Referemces")]
     public GameObject artTemplate;
     public Transform parent;
-    public GameObject generalManager;
+    public BuildingCreator generalManager;
+
+    public Image img;
 
     public void Create(BuildingObject buildingArt, Sprite sprite)
     {
@@ -25,13 +27,10 @@ public class CharacterArtUIManager : MonoBehaviour
         GameObject artInstance = Instantiate(artTemplate, parent);
 
         // ---- Assign image ----
-        Image img = artInstance.GetComponentInChildren<Image>();
-
+        
         if (img != null)
         {
             img.sprite = sprite;
-            RectTransform rt = img.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(1000, 1000);
         }
         else
         {

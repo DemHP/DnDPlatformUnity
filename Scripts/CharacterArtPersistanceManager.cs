@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using UnityEngine.Tilemaps;
 
 
-public class CharacterArtPersistanceManager
+public class CharacterArtPersistanceManager : MonoBehaviour
 {
 
     public string type = "";
@@ -43,11 +43,11 @@ public class CharacterArtPersistanceManager
         string imageName = Path.GetFileNameWithoutExtension(imagePath);
 
         File.WriteAllText(
-            Path.Combine(artFolder, imageName + ".jon"),
+            Path.Combine(artFolder, imageName + ".json"),
             JsonUtility.ToJson(artJson, true)
         );
 
-        string buildFolder = Path.Combine(UnityEngine.Application.persistentDataPath, "CharacterSheets");
+        string buildFolder = Path.Combine(UnityEngine.Application.persistentDataPath, "BuildingObjects");
         Directory.CreateDirectory(buildFolder);
 
         BuildingArtJson boJson = new BuildingArtJson
@@ -79,7 +79,7 @@ public class CharacterArtPersistanceManager
     // ================= LOAD ALL ART =================
     public void LoadAll(string typeFilter)
     {
-        string artFolder = Path.Combine(Application.persistentDataPath, "Tiles");
+        string artFolder = Path.Combine(Application.persistentDataPath, "CharacterArt");
         string buildFolder = Path.Combine(Application.persistentDataPath, "BuildingArt");
 
         if (!Directory.Exists(artFolder))
